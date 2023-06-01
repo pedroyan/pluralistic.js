@@ -1,4 +1,4 @@
-import { linearQF, RecipientsCalculations } from "../index.js";
+import { Contribution, linearQF, RecipientsCalculations } from "../index.js";
 
 // Tests taken from
 // https://github.com/gitcoinco/grants-stack/blob/main/packages/api/docs/linearQF.md#qf-calculation-example
@@ -396,5 +396,78 @@ describe("linearQF", () => {
       matchedWithoutCap: 0n,
       matched: 0n,
     });
+  });
+
+  // https://wtfisqf.com/?grant=100000&grant=5000,5000,5000,5000&grant=3000,2000,1000&grant=6000,6000&match=325000
+  // Project 1 is eligible for 146k according to the link above, but it gets 0
+  test("correctly assigns a match to a project with a single contribution", async () => {
+    const matchAmount = 325_000_000_000n; // 325k USDC
+    const testContributions: Contribution[] = [
+      {
+        contributor: "sender_1",
+        recipient: "project_1",
+        amount: 100_000_000_000n, // One contribution of 100k to project 1
+      },
+      {
+        contributor: "sender_2",
+        recipient: "project_2",
+        amount: 5_000_000_000n,
+      },
+      {
+        contributor: "sender_3",
+        recipient: "project_2",
+        amount: 5_000_000_000n,
+      },
+      {
+        contributor: "sender_4",
+        recipient: "project_2",
+        amount: 5_000_000_000n,
+      },
+      {
+        contributor: "sender_5",
+        recipient: "project_2",
+        amount: 5_000_000_000n,
+      },
+      {
+        contributor: "sender_6",
+        recipient: "project_3",
+        amount: 3_000_000_000n,
+      },
+      {
+        contributor: "sender_7",
+        recipient: "project_3",
+        amount: 2_000_000_000n,
+      },
+      {
+        contributor: "sender_8",
+        recipient: "project_3",
+        amount: 1_000_000_000n,
+      },
+      {
+        contributor: "sender_9",
+        recipient: "project_4",
+        amount: 6_000_000_000n,
+      },
+      {
+        contributor: "sender_10",
+        recipient: "project_4",
+        amount: 6_000_000_000n,
+      },
+    ];
+
+    const res = linearQF(testContributions, matchAmount, DECIMALS_PRECISION, {
+      minimumAmount: 0n,
+      ignoreSaturation: true,
+      matchingCapAmount: undefined,
+    });
+
+    expect(Object.keys(res).length).toEqual(4);
+
+    // Test will fail here - project_1 should get 146k, but it gets 0
+    expect(res["project_1"].matched).toBeGreaterThan(0n);
+
+    // Furthermore, test will fail here too - the total matched amount will not be equal to the matchAmount (nor close to it)
+    // because project_1 gets 0, affecting the total distribution.
+    testDistributedAmount(res, matchAmount, 1n);
   });
 });
